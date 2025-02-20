@@ -18,7 +18,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from algorithms import Algorithm, EpsilonGreedy
+from algorithms import Algorithm, EpsilonGreedy, UCB1, UCB2, Softmax, GradientBandit
 
 
 def get_algorithm_label(algo: Algorithm) -> str:
@@ -31,13 +31,20 @@ def get_algorithm_label(algo: Algorithm) -> str:
     :rtype: str
     """
     label = type(algo).__name__
+
     if isinstance(algo, EpsilonGreedy):
         label += f" (epsilon={algo.epsilon})"
-    # elif isinstance(algo, OtroAlgoritmo):
-    #     label += f" (parametro={algo.parametro})"
-    # Añadir más condiciones para otros algoritmos aquí
+    elif isinstance(algo, UCB1):
+        label += f" (c={algo.c})"
+    elif isinstance(algo, UCB2):
+        label += f" (alpha={algo.alpha})"
+    elif isinstance(algo, Softmax):
+        label += f" (tau={algo.tau})"
+    elif isinstance(algo, GradientBandit):
+        label += f" (alpha={algo.alpha})"
     else:
-        raise ValueError("El algoritmo debe ser de la clase Algorithm o una subclase.")
+        raise ValueError(f"El algoritmo debe ser de la clase Algorithm o una subclase. Recibido: {type(algo).__name__}")
+
     return label
 
 
