@@ -27,4 +27,4 @@ Para poder observar los experimentos realizados así como el estudio llevado a c
 
 ## Tecnologías Utilizadas
   - Lenguaje de programación: Python
-  - Frameworks y librerías: NumPy, MAtplotlib, ABC, Typing, Math, Random
+  - Frameworks y librerías: NumPy, Matplotlib, ABC, Typing, Math, Random
