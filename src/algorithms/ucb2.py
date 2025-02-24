@@ -16,7 +16,7 @@ class UCB2(Algorithm):
         self.t = 0  # Contador de tiempo global
         self.epochs = np.zeros(k, dtype=int)  # Número de épocas para cada brazo
         self.tau = np.ones(k, dtype=int)  # Tamaño de la época por brazo
-        self.MAX_TAU = 10**6  # Límite máximo para evitar overflow
+        self.MAX_TAU = 10**4  # 🔹 Reducimos límite de tau_k_a para evitar exploraciones extremas
 
     def select_arm(self) -> tuple:
         """
@@ -37,7 +37,11 @@ class UCB2(Algorithm):
 
             # Calcular τ(k_a) = (1 + alpha) ^ epochs[a], asegurando que no crezca demasiado
             tau_k_a = min(math.ceil((1 + self.alpha) ** self.epochs[a]), self.MAX_TAU)
-            ucb_values[a] = self.values[a] + np.sqrt(((1 + self.alpha) * np.log(max(math.e * self.t / tau_k_a, 1))) / (2 * tau_k_a))
+
+            # 🔹 Ajustamos la ecuación para reducir exploración en etapas tardías
+            ucb_values[a] = self.values[a] + np.sqrt(
+                ((1 + self.alpha) * np.log(max(math.e * self.t / tau_k_a, 1))) / (2 * tau_k_a)
+            ) - (self.epochs[a] * 0.01)  # 🔹 Penalización para brazos demasiado explorados
 
         # Seleccionar el brazo con el mayor valor UCB2
         arm = np.argmax(ucb_values)
@@ -60,10 +64,10 @@ class UCB2(Algorithm):
         # Actualización estándar del valor y el contador
         super().update(chosen_arm, reward)
 
-        # Si se requiere actualizar la época para el brazo seleccionado
+        # 🔹 Reducimos la velocidad de crecimiento de las épocas para mejorar estabilidad
         if update_epoch:
             self.epochs[chosen_arm] += 1  # Incrementar la cantidad de épocas del brazo
-            self.tau[chosen_arm] = min(math.ceil((1 + self.alpha) ** self.epochs[chosen_arm]), self.MAX_TAU)  # Evita τ(k_a) < 1
+            self.tau[chosen_arm] = min(math.ceil((1 + self.alpha) ** (self.epochs[chosen_arm] / 1.2)), self.MAX_TAU)  # 🔹 Hacer que tau crezca más lento
 
     def reset(self):
         """
