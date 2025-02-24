@@ -15,6 +15,7 @@ class UCB2(Algorithm):
         self.alpha = alpha
         self.epochs = np.zeros(k, dtype=int)  # Número de épocas por brazo
         self.tau = np.ones(k, dtype=int)  # Tamaño de la época por brazo
+        self.MAX_TAU = 10_000  # 🔹 Límite máximo de tau para evitar overflow
 
     def select_arm(self) -> int:
         """
@@ -46,8 +47,8 @@ class UCB2(Algorithm):
         # Actualizar número de épocas del brazo
         self.epochs[chosen_arm] += 1
 
-        # Actualizar τ (duración de la siguiente época)
-        self.tau[chosen_arm] = max(math.ceil((1 + self.alpha) ** self.epochs[chosen_arm]), 1)
+        # Actualizar τ (duración de la siguiente época) con un límite máximo
+        self.tau[chosen_arm] = min(math.ceil((1 + self.alpha) ** self.epochs[chosen_arm]), self.MAX_TAU)
 
     def reset(self):
         """
