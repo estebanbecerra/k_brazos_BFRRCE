@@ -1,64 +1,34 @@
 import numpy as np
-from math import log, sqrt, ceil
-from algorithms.algorithm import Algorithm
+import math
 
-class UCB2(Algorithm):
-    def __init__(self, k: int, alpha: float):
-        """
-        Inicializa el algoritmo UCB2 con k brazos y un parámetro de ajuste alpha.
-        :param k: Número de brazos.
-        :param alpha: Parámetro de ajuste para el balance entre exploración y explotación.
-        """
-        assert 0 < alpha < 1, "El parámetro alpha debe ser mayor que 0 y menor que 1."
-
-        super().__init__(k)
+class UCB2:
+    def __init__(self, n_arms, alpha=0.1):
+        self.n_arms = n_arms
         self.alpha = alpha
-        self.epochs = np.zeros(k, dtype=int)  # Número de épocas de cada brazo
+        self.counts = np.zeros(n_arms)  # Número de veces que se ha seleccionado cada brazo
+        self.values = np.zeros(n_arms)  # Recompensa promedio de cada brazo
+        self.epochs = np.zeros(n_arms, dtype=int)  # Épocas por brazo
+        self.tau = np.ones(n_arms, dtype=int)  # Duración de cada época
 
-    def select_arm(self, t: int) -> int:
-        """
-        Selecciona el brazo con el índice máximo de UCB2.
-        :param t: instante de tiempo actual
-        :return: Índice del brazo seleccionado (mejor acción) y el intervalo de tiempo que se ejecutará a continuación
-        """
-        ucb_values = np.zeros(self.k)
+    def select_arm(self):
+        """Selecciona el brazo con el índice UCB2 más alto."""
+        # Si algún brazo no ha sido probado, seleccionarlo primero
+        for arm in range(self.n_arms):
+            if self.counts[arm] == 0:
+                return arm
         
-        for a in range(self.k):
-            # Fórmula UCB2
-            if self.counts[a] > 0: #por si acaso, aunque todos los brazos fueron inicializados
-                tau_k_a = ceil((1 + self.alpha) ** self.epochs[a])  # Calcula τ(k_a)
-                ucb_values[a] = self.values[a] + sqrt(((1 + self.alpha) * log((np.e * t) / tau_k_a)) / (2 * tau_k_a))
-            else:
-                # Si el brazo no ha sido seleccionado, asigna un valor muy alto para explorarlo
-                ucb_values[a] = float('inf')
-
-        # Selecciona el brazo con el valor UCB2 más alto
-        accion_escogida = np.argmax(ucb_values)
-        #calculamos tau (k_a) y tau (k_a + 1) para la accion escogida
-        tau_k_a = ceil((1 + self.alpha) ** self.epochs[accion_escogida])  # Calcula τ(k_a)
-        tau_k_a_1 = ceil((1 + self.alpha) ** (self.epochs[accion_escogida] + 1))
-        #Calculamos el bloque de tiempo en que se ejecutará la acción escogida
-        intervalo_temporal = tau_k_a_1 - tau_k_a
+        # Calcular UCB2 para cada brazo
+        ucb_values = self.values + np.sqrt((1 + self.alpha) * np.log(math.e * sum(self.counts) / self.tau) / (2 * self.tau))
         
-        return accion_escogida, intervalo_temporal
-            
-    
-    def update(self, chosen_arm: int, reward: float, update_epoch: bool):
-        """
-        Actualiza el valor promedio del brazo elegido y el número de veces que se ha seleccionado.
-        :param chosen_arm: Índice del brazo que fue seleccionado.
-        :param reward: Recompensa obtenida por seleccionar el brazo.
-        """
-        if update_epoch:
-            # Actualizamos el número de épocas (ka) para el brazo seleccionado
-            self.epochs[chosen_arm] += 1
-        else:
-            super().update(chosen_arm, reward)
-            
+        return np.argmax(ucb_values)  # Seleccionamos el brazo con el mayor índice
 
-    def reset(self):
-        """
-        Reinicia el estado del algoritmo UCB2.
-        """
-        super().reset()
-        self.epochs = np.zeros(self.k, dtype=int)  # Reinicia las épocas de cada brazo
+    def update(self, chosen_arm, reward):
+        """Actualiza las estadísticas del brazo seleccionado."""
+        self.counts[chosen_arm] += 1
+        self.epochs[chosen_arm] += 1  # Incrementar el número de épocas del brazo
+        
+        # Actualizar estimación de la recompensa media
+        self.values[chosen_arm] += (reward - self.values[chosen_arm]) / self.counts[chosen_arm]
+
+        # Actualizar τ (duración de la siguiente época)
+        self.tau[chosen_arm] = max(math.ceil((1 + self.alpha) ** self.epochs[chosen_arm]), 1)
