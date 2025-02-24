@@ -15,6 +15,7 @@ class UCB2(Algorithm):
         self.alpha = alpha
         self.t = 0  # Contador de tiempo global
         self.epochs = np.zeros(k, dtype=int)  # Número de épocas para cada brazo
+        self.tau = np.ones(k, dtype=int)  # Tamaño de la época por brazo
 
     def select_arm(self) -> tuple:
         """
@@ -31,12 +32,11 @@ class UCB2(Algorithm):
 
         for a in range(self.k):
             if self.counts[a] == 0:
-                # Si el brazo no ha sido seleccionado, lo priorizamos
-                return a, 1  
+                return a, 1  # Se explora cada brazo al menos una vez
 
             # Calcular τ(k_a) = (1 + alpha) ^ k_a
-            tau_k_a = math.ceil((1 + self.alpha) ** self.epochs[a])
-            ucb_values[a] = self.values[a] + np.sqrt(((1 + self.alpha) * np.log(math.e * self.t / tau_k_a)) / (2 * tau_k_a))
+            tau_k_a = max(math.ceil((1 + self.alpha) ** self.epochs[a]), 1)  # Evita τ(k_a) < 1
+            ucb_values[a] = self.values[a] + np.sqrt(((1 + self.alpha) * np.log(max(math.e * self.t / tau_k_a, 1))) / (2 * tau_k_a))
 
         # Seleccionar el brazo con el mayor valor UCB2
         arm = np.argmax(ucb_values)
@@ -44,7 +44,7 @@ class UCB2(Algorithm):
         # Calcular el intervalo de ejecución
         tau_k_a = math.ceil((1 + self.alpha) ** self.epochs[arm])  # τ(k_a)
         tau_k_a_1 = math.ceil((1 + self.alpha) ** (self.epochs[arm] + 1))  # τ(k_a+1)
-        intervalo_temporal = tau_k_a_1 - tau_k_a  # Diferencia de épocas
+        intervalo_temporal = max(tau_k_a_1 - tau_k_a, 1)  # Evitar intervalos de 0
 
         return arm, intervalo_temporal
 
@@ -62,6 +62,7 @@ class UCB2(Algorithm):
         # Si se requiere actualizar la época para el brazo seleccionado
         if update_epoch:
             self.epochs[chosen_arm] += 1  # Incrementar la cantidad de épocas del brazo
+            self.tau[chosen_arm] = max(math.ceil((1 + self.alpha) ** self.epochs[chosen_arm]), 1)  # Evita τ(k_a) < 1
 
     def reset(self):
         """
@@ -69,4 +70,5 @@ class UCB2(Algorithm):
         """
         super().reset()
         self.epochs = np.zeros(self.k, dtype=int)  # Reiniciar épocas
+        self.tau = np.ones(self.k, dtype=int)  # Reiniciar tamaño de época
         self.t = 0  # Reiniciar el contador de tiempo
