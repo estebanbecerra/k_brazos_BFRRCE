@@ -1,79 +1,64 @@
-from algorithms.algorithm import Algorithm
 import numpy as np
-import math
+from math import log, sqrt, ceil
+from algorithms.algorithm import Algorithm
 
 class UCB2(Algorithm):
-    def __init__(self, k: int, alpha: float = 0.5):
+    def __init__(self, k: int, alpha: float):
         """
-        Inicializa el algoritmo UCB2 con k brazos y un parámetro alpha para el balance entre exploración y explotación.
-
+        Inicializa el algoritmo UCB2 con k brazos y un parámetro de ajuste alpha.
         :param k: Número de brazos.
-        :param alpha: Parámetro de ajuste (0 < alpha < 1), controla la frecuencia de exploración.
+        :param alpha: Parámetro de ajuste para el balance entre exploración y explotación.
         """
-        assert 0 < alpha < 1, "El parámetro alpha debe estar en el rango (0,1)."
+        assert 0 < alpha < 1, "El parámetro alpha debe ser mayor que 0 y menor que 1."
+
         super().__init__(k)
         self.alpha = alpha
-        self.t = 0  # Contador de tiempo global
-        self.epochs = np.zeros(k, dtype=int)  # Número de épocas para cada brazo
-        self.tau = np.ones(k, dtype=int)  # Tamaño de la época por brazo
-        self.MAX_TAU = 10**4  # 🔹 Reducimos límite de tau_k_a para evitar exploraciones extremas
+        self.epochs = np.zeros(k, dtype=int)  # Número de épocas de cada brazo
 
-    def select_arm(self) -> tuple:
+    def select_arm(self, t: int) -> int:
         """
-        Selecciona el brazo con el mayor índice UCB2.
-        
-        Devuelve:
-          (índice del brazo seleccionado, intervalo de ejecución)
-
-        El intervalo de ejecución es la cantidad de veces que se ejecutará el brazo en la época actual.
+        Selecciona el brazo con el índice máximo de UCB2.
+        :param t: instante de tiempo actual
+        :return: Índice del brazo seleccionado (mejor acción) y el intervalo de tiempo que se ejecutará a continuación
         """
-        self.t += 1  # Incrementa el contador de tiempo global
-
         ucb_values = np.zeros(self.k)
-
+        
         for a in range(self.k):
-            if self.counts[a] == 0:
-                return a, 1  # Se explora cada brazo al menos una vez
+            # Fórmula UCB2
+            if self.counts[a] > 0: #por si acaso, aunque todos los brazos fueron inicializados
+                tau_k_a = ceil((1 + self.alpha) ** self.epochs[a])  # Calcula τ(k_a)
+                ucb_values[a] = self.values[a] + sqrt(((1 + self.alpha) * log((np.e * t) / tau_k_a)) / (2 * tau_k_a))
+            else:
+                # Si el brazo no ha sido seleccionado, asigna un valor muy alto para explorarlo
+                ucb_values[a] = float('inf')
 
-            # Calcular τ(k_a) = (1 + alpha) ^ epochs[a], asegurando que no crezca demasiado
-            tau_k_a = min(math.ceil((1 + self.alpha) ** self.epochs[a]), self.MAX_TAU)
-
-            # 🔹 Ajustamos la ecuación para reducir exploración en etapas tardías
-            ucb_values[a] = self.values[a] + np.sqrt(
-                ((1 + self.alpha) * np.log(max(math.e * self.t / tau_k_a, 1))) / (2 * tau_k_a)
-            ) - (self.epochs[a] * 0.01)  # 🔹 Penalización para brazos demasiado explorados
-
-        # Seleccionar el brazo con el mayor valor UCB2
-        arm = np.argmax(ucb_values)
-
-        # Calcular el intervalo de ejecución
-        tau_k_a = min(math.ceil((1 + self.alpha) ** self.epochs[arm]), self.MAX_TAU)
-        tau_k_a_1 = min(math.ceil((1 + self.alpha) ** (self.epochs[arm] + 1)), self.MAX_TAU)
-        intervalo_temporal = max(tau_k_a_1 - tau_k_a, 1)  # Evitar intervalos de 0
-
-        return arm, intervalo_temporal
-
+        # Selecciona el brazo con el valor UCB2 más alto
+        accion_escogida = np.argmax(ucb_values)
+        #calculamos tau (k_a) y tau (k_a + 1) para la accion escogida
+        tau_k_a = ceil((1 + self.alpha) ** self.epochs[accion_escogida])  # Calcula τ(k_a)
+        tau_k_a_1 = ceil((1 + self.alpha) ** (self.epochs[accion_escogida] + 1))
+        #Calculamos el bloque de tiempo en que se ejecutará la acción escogida
+        intervalo_temporal = tau_k_a_1 - tau_k_a
+        
+        return accion_escogida, intervalo_temporal
+            
+    
     def update(self, chosen_arm: int, reward: float, update_epoch: bool):
         """
-        Actualiza la estimación de la recompensa y, opcionalmente, el número de épocas para el brazo seleccionado.
-
-        :param chosen_arm: Índice del brazo seleccionado.
-        :param reward: Recompensa obtenida.
-        :param update_epoch: Si es True, se actualiza la época para el brazo.
+        Actualiza el valor promedio del brazo elegido y el número de veces que se ha seleccionado.
+        :param chosen_arm: Índice del brazo que fue seleccionado.
+        :param reward: Recompensa obtenida por seleccionar el brazo.
         """
-        # Actualización estándar del valor y el contador
-        super().update(chosen_arm, reward)
-
-        # 🔹 Reducimos la velocidad de crecimiento de las épocas para mejorar estabilidad
         if update_epoch:
-            self.epochs[chosen_arm] += 1  # Incrementar la cantidad de épocas del brazo
-            self.tau[chosen_arm] = min(math.ceil((1 + self.alpha) ** (self.epochs[chosen_arm] / 1.2)), self.MAX_TAU)  # 🔹 Hacer que tau crezca más lento
+            # Actualizamos el número de épocas (ka) para el brazo seleccionado
+            self.epochs[chosen_arm] += 1
+        else:
+            super().update(chosen_arm, reward)
+            
 
     def reset(self):
         """
-        Reinicia el estado del algoritmo.
+        Reinicia el estado del algoritmo UCB2.
         """
         super().reset()
-        self.epochs = np.zeros(self.k, dtype=int)  # Reiniciar épocas
-        self.tau = np.ones(self.k, dtype=int)  # Reiniciar tamaño de época
-        self.t = 0  # Reiniciar el contador de tiempo
+        self.epochs = np.zeros(self.k, dtype=int)  # Reinicia las épocas de cada brazo
