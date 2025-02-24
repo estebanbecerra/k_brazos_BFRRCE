@@ -11,11 +11,11 @@ class UCB2(Algorithm):
         :param alpha: Parámetro de ajuste (0 < alpha < 1), controla la frecuencia de exploración.
         """
         assert 0 < alpha < 1, "El parámetro alpha debe estar en el rango (0,1)."
-        super().__init__(k)  # Llama al constructor de Algorithm
+        super().__init__(k)  
         self.alpha = alpha
         self.epochs = np.zeros(k, dtype=int)  # Número de épocas por brazo
         self.tau = np.ones(k, dtype=int)  # Tamaño de la época por brazo
-        self.MAX_TAU = 10_000  # 🔹 Límite máximo de tau para evitar overflow
+        self.MAX_TAU = 10_000  # Límite máximo de tau para evitar overflow
 
     def select_arm(self) -> int:
         """
